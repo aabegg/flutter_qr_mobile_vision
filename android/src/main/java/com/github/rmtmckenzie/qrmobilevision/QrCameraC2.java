@@ -60,13 +60,16 @@ class QrCameraC2 implements QrCamera {
     private int orientation;
     private CameraDevice cameraDevice;
     private CameraCharacteristics cameraCharacteristics;
+    private boolean isFlashOn = false;
+    private final String resolution;
 
-    QrCameraC2(int width, int height, Context context, SurfaceTexture texture, QrDetector2 detector) {
+    QrCameraC2(int width, int height, Context context, SurfaceTexture texture, QrDetector2 detector, String resolutionSel) {
         this.targetWidth = width;
         this.targetHeight = height;
         this.context = context;
         this.texture = texture;
         this.detector = detector;
+        this.resolution = resolutionSel;
     }
 
     @Override
@@ -254,6 +257,42 @@ class QrCameraC2 implements QrCamera {
         }
     }
 
+    public void turnOnFlashLight() {
+        try
+        {
+            previewBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH);
+            previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void turnOffFlashLight() {
+        try
+        {
+            previewBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_OFF);
+            previewSession.setRepeatingRequest(previewBuilder.build(), null, null);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+     @Override
+    public void toggleFlash() {
+        if(isFlashOn) {
+            turnOffFlashLight();
+            isFlashOn = false;
+        }
+        else {
+            turnOnFlashLight();
+            isFlashOn = true;
+        }
+    }
+
     @Override
     public void stop() {
         if (cameraDevice != null) {
@@ -271,43 +310,59 @@ class QrCameraC2 implements QrCamera {
         }
 
         Size s = sizes[0];
-        Size s1 = sizes[1];
+        Size s1 = sizes[sizes.length-1];
 
-        if (s1.getWidth() > s.getWidth() || s1.getHeight() > s.getHeight()) {
+        if (s1.getHeight() > s.getHeight() ) {
             // ascending
-            if (orientation % 180 == 0) {
-                for (Size size : sizes) {
-                    s = size;
-                    if (size.getHeight() > targetHeight && size.getWidth() > targetWidth) {
-                        break;
+            Log.i(TAG, "ascending resolution list:"+this.resolution);
+
+            if (this.resolution.endsWith("Max")) {
+                s = s1;
+            } else { // auto
+                Log.i(TAG, "auto resolution ascending");
+                if (orientation % 180 == 0) {
+                    for (Size size : sizes) {
+                        s = size;
+                        if (size.getHeight() > targetHeight && size.getWidth() > targetWidth) {
+                            break;
+                        }
+                    }
+                } else {
+                    for (Size size : sizes) {
+                        s = size;
+                        if (size.getHeight() > targetWidth && size.getWidth() > targetHeight) {
+                            break;
+                        }
                     }
                 }
-            } else {
-                for (Size size : sizes) {
-                    s = size;
-                    if (size.getHeight() > targetWidth && size.getWidth() > targetHeight) {
-                        break;
-                    }
-                }
+
             }
+
         } else {
             // descending
-            if (orientation % 180 == 0) {
-                for (Size size : sizes) {
-                    if (size.getHeight() < targetHeight || size.getWidth() < targetWidth) {
-                        break;
+
+            if (this.resolution.endsWith("Max")) {
+                s = sizes[0];
+            } else { // auto
+
+                if (orientation % 180 == 0) {
+                    for (Size size : sizes) {
+                        if (size.getHeight() < targetHeight || size.getWidth() < targetWidth) {
+                            break;
+                        }
+                        s = size;
                     }
-                    s = size;
-                }
-            } else {
-                for (Size size : sizes) {
-                    if (size.getHeight() < targetWidth || size.getWidth() < targetHeight) {
-                        break;
+                } else {
+                    for (Size size : sizes) {
+                        if (size.getHeight() < targetWidth || size.getWidth() < targetHeight) {
+                            break;
+                        }
+                        s = size;
                     }
-                    s = size;
                 }
             }
         }
+        Log.i(TAG, "Selected Resolution is: " + s);
         return s;
     }
 
